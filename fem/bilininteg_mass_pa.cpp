@@ -481,9 +481,11 @@ static void OccaPAMassApply2D(const int D1D,
                               const Vector &X,
                               Vector &Y)
 {
-   occa::properties props;
-   props["defines/D1D"] = D1D;
-   props["defines/Q1D"] = Q1D;
+   occa::json props(
+   {
+      {"defines/D1D", D1D},
+      {"defines/Q1D", Q1D}
+   });
    const occa::memory o_B = OccaMemoryRead(B.GetMemory(), B.Size());
    const occa::memory o_Bt = OccaMemoryRead(Bt.GetMemory(), Bt.Size());
    const occa::memory o_D = OccaMemoryRead(D.GetMemory(), D.Size());
@@ -526,9 +528,11 @@ static void OccaPAMassApply3D(const int D1D,
                               const Vector &X,
                               Vector &Y)
 {
-   occa::properties props;
-   props["defines/D1D"] = D1D;
-   props["defines/Q1D"] = Q1D;
+   occa::json props(
+   {
+      {"defines/D1D", D1D},
+      {"defines/Q1D", Q1D}
+   });
    const occa::memory o_B = OccaMemoryRead(B.GetMemory(), B.Size());
    const occa::memory o_Bt = OccaMemoryRead(Bt.GetMemory(), Bt.Size());
    const occa::memory o_D = OccaMemoryRead(D.GetMemory(), D.Size());
