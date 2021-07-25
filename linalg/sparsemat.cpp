@@ -1444,12 +1444,13 @@ void SparseMatrix::Symmetrize()
 
 int SparseMatrix::NumNonZeroElems() const
 {
-   if (A != NULL)  // matrix is finalized
+   if (HostReadData() != NULL)  // matrix is finalized
    {
-      return I[height];
+      return HostReadI()[height];
    }
    else
    {
+
       int nnz = 0;
 
       for (int i = 0; i < height; i++)
@@ -2463,22 +2464,25 @@ void SparseMatrix::DiagScale(const Vector &b, Vector &x, double sc) const
    });
 }
 
-void SparseMatrix::Jacobi2(const Vector &b, const Vector &x0, Vector &x1,
+void SparseMatrix::Jacobi2(const Vector &bvec, const Vector &x0vec, Vector &x1vec,
                            double sc) const
 {
    MFEM_VERIFY(Finalized(), "Matrix must be finalized.");
+   const auto x0 = x0vec.HostRead();
+   const auto b  = bvec.HostRead();
+   auto       x1 = x1vec.HostReadWrite();
 
    for (int i = 0; i < height; i++)
    {
-      double resi = b(i), norm = 0.0;
+      double resi = b[i], norm = 0.0;
       for (int j = I[i]; j < I[i+1]; j++)
       {
-         resi -= A[j] * x0(J[j]);
+         resi -= A[j] * x0[J[j]];
          norm += fabs(A[j]);
       }
       if (norm > 0.0)
       {
-         x1(i) = x0(i) + sc * resi / norm;
+         x1[i] = x0[i] + sc * resi / norm;
       }
       else
       {
@@ -3308,9 +3312,9 @@ SparseMatrix *Transpose (const SparseMatrix &A)
    m      = A.Height(); // number of rows of A
    n      = A.Width();  // number of columns of A
    nnz    = A.NumNonZeroElems();
-   A_i    = A.GetI();
-   A_j    = A.GetJ();
-   A_data = A.GetData();
+   A_i    = A.HostReadI();
+   A_j    = A.HostReadJ();
+   A_data = A.HostReadData();
 
    At_i = Memory<int>(n+1);
    At_j = Memory<int>(nnz);

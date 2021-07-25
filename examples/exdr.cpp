@@ -166,29 +166,20 @@ int main(int argc, char *argv[])
    x = 0.0;
    a.FormLinearSystem(ess_dofs,x,b,A,X,B);
 
-   LORDiscretization    lor(a,ess_dofs);
-   const SparseMatrix  &ALor = lor.GetAssembledMatrix();
-   LORInfo              lorInfo(*lor.GetFESpace().GetMesh(),ctx->mesh,ctx->order);
-   DisjointSets        *cluster = lorInfo.Cluster();
-   PrintClusteringStats(std::cout,cluster);
-   DRSmoother           smoother(cluster,&ALor,dim == 3);
-   LORSolver<SimpleAMG> lorSol(lor,ALor,smoother,SimpleAMG::solverBackend::AMG_AMGX,MPI_COMM_WORLD,ctx->amgConfig);
+   LORDiscretization       lor(a,ess_dofs);
+   const SparseMatrix      &ALor = lor.GetAssembledMatrix();
+   std::unique_ptr<Solver> smoother;
 
-   CGSolver cg;
+   if (ctx->smootherType == "DR") {
+     LORInfo lorInfo(*lor.GetFESpace().GetMesh(),ctx->mesh,ctx->order);
+     smoother.reset(new DRSmoother(lorInfo.Cluster(),&ALor,dim == 3));
+   } else if (ctx->smootherType == "J") {
+     smoother.reset(new GSSmoother(ALor));
+   }
 
-   cg.SetAbsTol(0.0);
-   cg.SetRelTol(1e-12);
-   cg.SetMaxIter(500);
-   cg.SetPrintLevel(1);
-   cg.SetPreconditioner(lorSol);
-   cg.SetOperator(*A);
-   cg.Mult(B,X);
+   LORSolver<SimpleAMG> lorSol(lor,ALor,*smoother,SimpleAMG::solverBackend::AMG_AMGX,MPI_COMM_WORLD,ctx->amgConfig);
 
-#if 0
-   // need to figure out a way to do either without a segfault
-   LORSolver<DRSmoother> lorSol(lor,lorInfo.Cluster(),ALor);
-   cg.SetPreconditioner(lorSol);
-#endif
+   PCG(*A,lorSol,B,X,1,500,1e-12,0.0);
 
    //a.RecoverFEMSolution(X,b,x);
    return 0;
