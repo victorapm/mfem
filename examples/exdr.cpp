@@ -116,9 +116,9 @@ static UserCtx ParseCommandLineOptions(int argc, char *argv[])
 
    args.AddOption(&device, "-d", "--device",
                   "Device configuration string, see Device::Configure().");
-   args.AddOption(&meshFile,"-m","--mesh-file","Input mesh file");
+   args.AddOption(&meshFile,"-m","--mesh","Input mesh file");
    args.AddOption(&smoother,"-s","--smoother",
-                  "Smoother to use (one of J-Jacobi, DR-distributive relaxation)");
+                  "Smoother to use (one of GS-Gauss Seidel, DR-distributive relaxation)");
    args.AddOption(&solver,"-S","--solver","Which solver to use (either direct, simpleamg, or amgx");
    args.AddOption(&amg,"-A","--amg-config","Path to amg config file, if using amgx");
    args.AddOption(&order,"-o","--order","Polynomial degree");
@@ -143,7 +143,7 @@ int main(int argc, char *argv[])
    fec.reset(new H1_FECollection(ctx->order,dim,BasisType::GaussLobatto));
 
    FiniteElementSpace fes(&ctx->mesh,fec.get());
-   std::cout<<"Number of DOFs: "<<fes.GetTrueVSize()<<std::endl;
+   out<<"Number of finite element unknowns: "<<fes.GetTrueVSize()<<std::endl;
 
    Array<int> ess_dofs;
    fes.GetBoundaryTrueDofs(ess_dofs);
@@ -166,20 +166,32 @@ int main(int argc, char *argv[])
    x = 0.0;
    a.FormLinearSystem(ess_dofs,x,b,A,X,B);
 
+   StopWatch               chrono;
    LORDiscretization       lor(a,ess_dofs);
    const SparseMatrix      &ALor = lor.GetAssembledMatrix();
    std::unique_ptr<Solver> smoother;
 
+   chrono.Start();
    if (ctx->smootherType == "DR") {
      LORInfo lorInfo(*lor.GetFESpace().GetMesh(),ctx->mesh,ctx->order);
      smoother.reset(new DRSmoother(lorInfo.Cluster(),&ALor,dim == 3));
-   } else if (ctx->smootherType == "J") {
+   } else if (ctx->smootherType == "GS") {
      smoother.reset(new GSSmoother(ALor));
+   } else if (ctx->smootherType == "J") {
+     smoother.reset(new DSmoother(ALor));
+   } else {
+     MFEM_ABORT("Unknown smoother type "<<ctx->smootherType);
    }
 
    LORSolver<SimpleAMG> lorSol(lor,ALor,*smoother,SimpleAMG::solverBackend::AMG_AMGX,MPI_COMM_WORLD,ctx->amgConfig);
+   chrono.Stop();
+   out<<"Setup time = "<<chrono.RealTime()<<std::endl;
+   chrono.Clear();
 
+   chrono.Start();
    PCG(*A,lorSol,B,X,1,500,1e-12,0.0);
+   chrono.Stop();
+   out<<"Solve time = "<<chrono.RealTime()<<std::endl;
 
    //a.RecoverFEMSolution(X,b,x);
    return 0;

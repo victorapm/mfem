@@ -22,12 +22,12 @@ class Runner(object):
     refsolve = re.compile('^Solve time = ([0-9]+\.[0-9]+)')
     refiter  = re.compile('\s+Iteration :\s+([0-9]+)')
 
-    if device not in self.setuptime:
-      self.setuptime[device] = {}
-    if device not in self.solvetime:
-      self.solvetime[device] = {}
-    if device not in self.itercount:
-      self.itercount[device] = {}
+    if smoother not in self.setuptime.keys():
+      self.setuptime[smoother] = {}
+    if smoother not in self.solvetime.keys():
+      self.solvetime[smoother] = {}
+    if smoother not in self.itercount.keys():
+      self.itercount[smoother] = {}
 
     for line in out.split('\n'):
       elems = refelems.search(line)
@@ -36,17 +36,17 @@ class Runner(object):
         continue
       setuptime = refsetup.search(line)
       if setuptime:
-        self.setuptime[device] = {smoother : setuptime.group(1)}
+        self.setuptime[smoother][device] = setuptime.group(1)
         continue
       solvetime = refsolve.search(line)
       if solvetime:
-        self.solvetime[device] = {smoother : solvetime.group(1)}
+        self.solvetime[smoother][device] = solvetime.group(1)
         continue
       itercnt = refiter.search(line)
       if itercnt:
         cnt = itercnt.group(1)
 
-    self.itercount[device] = {smoother : cnt}
+    self.itercount[smoother][device] = cnt
     return
 
   def run(self):
@@ -54,7 +54,7 @@ class Runner(object):
 
     for device in ['cpu','cuda']:
       argListBase = self.argList+['--device',device]
-      for smoother in ['J','DR']:
+      for smoother in ['J','GS','DR']:
         argList = argListBase+['--smoother',smoother]
         argStr = ' '.join(argList)
         print('Running {}'.format(argStr),end='\t',flush=True)
@@ -66,28 +66,54 @@ class Runner(object):
     return
 
   def get(self):
-    return (self.setuptime,self.solvetime,self.itercount)
+    return {
+      'setuptime' : self.setuptime,
+      'solvetime' : self.solvetime,
+      'itercount' : self.itercount,
+      'elemcount' : self.elems,
+      'arglist'   : self.argList,
+    }
 
-def main(exe,ordRange,refine,mesh):
+
+def main(exe,ordRange,refine,mesh,outFile):
   assert os.path.exists(exe), 'Could not find {}'.format(exe)
+  assert os.path.exists(mesh), 'Could not find {}'.format(mesh)
 
-  results = []
-  for order in ordRange:
-    runner = Runner(exe,'-o',str(order),'-r',str(refine),'-no-vis','--mesh',mesh)
-    runner.run()
-    results.append(runner.get())
-    print(results)
+  results = {}
+  try:
+    for order in ordRange:
+      runner = Runner(exe,'-o',str(order),'-r',str(refine),'--mesh',mesh)
+      runner.run()
+      results[order] = runner.get()
+  except AssertionError as ae:
+    print(ae)
+    print('\nsaving progress so far')
+
+  with open(outFile,'w') as fd:
+    import json
+    print('Writing results to file:',outFile,end='\t')
+    json.dump(results,fd)
+    assert os.path.exists(outFile), '\nError writing results file {}'.format(outFile)
+    print('success')
   return
 
 
 if __name__ == '__main__':
   import argparse
 
+  defaultOutput = 'output_o{ordmin}_{ordmax}_r{refine}.json'
   parser = argparse.ArgumentParser(description='Collect timing results for DRSmoothers',formatter_class=argparse.ArgumentDefaultsHelpFormatter)
   parser.add_argument('exec',help='path to example to time')
-  parser.add_argument('-o','--order-range',metavar='int',default=[4,9],type=int,nargs=2,dest='ordrange')
-  parser.add_argument('-r','--refine',metavar='int',default=5,type=int,dest='refine')
+  parser.add_argument('-o','--order-range',metavar='int',default=[4,7],type=int,nargs=2,dest='ordrange')
+  parser.add_argument('-r','--refine',metavar='int',default=0,type=int,dest='refine')
   parser.add_argument('-m','--mesh',default='../data/inline-hex.mesh')
+  parser.add_argument('-t','--target',default=defaultOutput,help='path to output file')
   args = parser.parse_args()
 
-  main(os.path.abspath(args.exec),range(*args.ordrange),args.refine,args.mesh)
+  if args.target == defaultOutput:
+    args.target = args.target.format(ordmin=args.ordrange[0],ordmax=args.ordrange[1],refine=args.refine)
+
+  if not args.target.endswith('.json'):
+    args.target += '.json'
+
+  main(os.path.abspath(args.exec),range(*args.ordrange),args.refine,os.path.abspath(args.mesh),os.path.abspath(args.target))
