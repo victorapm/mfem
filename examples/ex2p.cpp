@@ -57,9 +57,12 @@ int main(int argc, char *argv[])
    // 2. Parse command-line options.
    const char *mesh_file = "../data/beam-tri.mesh";
    int order = 1;
+   int serial_ref_levels = 4;
+   int parallel_ref_levels = 1;
    bool static_cond = false;
    bool visualization = 1;
    bool amg_elast = 0;
+   bool amg_fsai = 0;
    bool reorder_space = false;
    const char *device_config = "cpu";
 
@@ -68,10 +71,16 @@ int main(int argc, char *argv[])
                   "Mesh file to use.");
    args.AddOption(&order, "-o", "--order",
                   "Finite element order (polynomial degree).");
+   args.AddOption(&serial_ref_levels, "-sr", "--serial-ref",
+                  "Number of refinement levels in serial.");
+   args.AddOption(&parallel_ref_levels, "-pr", "--parallel-ref",
+                  "Number of refinement levels in parallel.");
    args.AddOption(&amg_elast, "-elast", "--amg-for-elasticity", "-sys",
                   "--amg-for-systems",
                   "Use the special AMG elasticity solver (GM/LN approaches), "
                   "or standard AMG for systems (unknown approach).");
+   args.AddOption(&amg_fsai, "-fsai", "--amg-fsai", "-no-fsai", "--no-amg-fsai",
+                  "Use FSAI as a complex smoother to BoomerAMG");
    args.AddOption(&static_cond, "-sc", "--static-condensation", "-no-sc",
                   "--no-static-condensation", "Enable static condensation.");
    args.AddOption(&visualization, "-vis", "--visualization", "-no-vis",
@@ -123,13 +132,9 @@ int main(int argc, char *argv[])
    }
 
    // 6. Refine the serial mesh on all processors to increase the resolution. In
-   //    this example we do 'ref_levels' of uniform refinement. We choose
-   //    'ref_levels' to be the largest number that gives a final mesh with no
-   //    more than 1,000 elements.
+   //    this example we do 'serial_ref_levels' of uniform refinement.
    {
-      int ref_levels =
-         (int)floor(log(1000./mesh->GetNE())/log(2.)/dim);
-      for (int l = 0; l < ref_levels; l++)
+      for (int l = 0; l < serial_ref_levels; l++)
       {
          mesh->UniformRefinement();
       }
@@ -141,8 +146,7 @@ int main(int argc, char *argv[])
    ParMesh *pmesh = new ParMesh(MPI_COMM_WORLD, *mesh);
    delete mesh;
    {
-      int par_ref_levels = 1;
-      for (int l = 0; l < par_ref_levels; l++)
+      for (int l = 0; l < parallel_ref_levels; l++)
       {
          pmesh->UniformRefinement();
       }
@@ -259,6 +263,7 @@ int main(int argc, char *argv[])
    // 14. Define and apply a parallel PCG solver for A X = B with the BoomerAMG
    //     preconditioner from hypre.
    HypreBoomerAMG *amg = new HypreBoomerAMG(A);
+
    if (amg_elast && !a->StaticCondensationIsEnabled())
    {
       amg->SetElasticityOptions(fespace);
@@ -267,6 +272,12 @@ int main(int argc, char *argv[])
    {
       amg->SetSystemsOptions(dim, reorder_space);
    }
+
+   if (amg_fsai)
+   {
+      amg->SetBoomerAMGFSAIOptions();
+   }
+
    HyprePCG *pcg = new HyprePCG(A);
    pcg->SetTol(1e-8);
    pcg->SetMaxIter(500);
