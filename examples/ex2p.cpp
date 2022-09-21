@@ -61,10 +61,11 @@ int main(int argc, char *argv[])
    int serial_ref_levels = 4;
    int parallel_ref_levels = 1;
    bool static_cond = false;
-   bool visualization = 1;
-   bool amg_elast = 0;
-   bool amg_fsai = 0;
+   bool visualization = true;
+   bool amg_elast = false;
+   bool amg_fsai = false;
    bool reorder_space = false;
+   bool save_results = 0;
    const char *device_config = "cpu";
 
    OptionsParser args(argc, argv);
@@ -89,6 +90,8 @@ int main(int argc, char *argv[])
    args.AddOption(&visualization, "-vis", "--visualization", "-no-vis",
                   "--no-visualization",
                   "Enable or disable GLVis visualization.");
+   args.AddOption(&save_results, "-save", "--save-results", "-no-save", "--no-save-results",
+                  "Save mesh and solution files.");
    args.AddOption(&reorder_space, "-nodes", "--by-nodes", "-vdim", "--by-vdim",
                   "Use byNODES ordering of vector space instead of byVDIM");
    args.AddOption(&device_config, "-d", "--device",
@@ -307,6 +310,7 @@ int main(int argc, char *argv[])
    // 17. Save in parallel the displaced mesh and the inverted solution (which
    //     gives the backward displacements to the original grid). This output
    //     can be viewed later using GLVis: "glvis -np <np> -m mesh -g sol".
+   if (save_results)
    {
       GridFunction *nodes = pmesh->GetNodes();
       *nodes += x;
