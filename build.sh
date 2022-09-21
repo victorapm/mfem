@@ -19,10 +19,11 @@ CPU_BUILD="no"
 CUDA_BUILD="no"
 HIP_BUILD="no"
 TEST="no"
+MODE="rel"
 while [ "$*" ]; do
    case $1 in
       -d|--debug)
-         DEBUG="yes"; shift
+         MODE="dbg"; shift
          ;;
 
       -c|--cpu)
@@ -48,17 +49,32 @@ while [ "$*" ]; do
    esac
 done
 
-MFEM_DIR=/home/victor/projects/mfem-vm
-HOST=$(hostname)
-NP=24
+MFEM_DIR=${HOME}/projects/mfem-vm
+HOST=${HOST:-$(hostname)}
+echo -e "Running on Host: ${HOST}"
+
+# Set host specific options
+case ${HOST} in
+    "lassen")
+        COMPILER="xlc16"
+        module load cuda/11.2.0
+        NP=40
+        ;;
+
+    "nztux")
+        COMPILER="gcc11"
+        NP=24
+        ;;
+
+    *)
+        echo -e "Unknown host!"
+        exit
+        ;;
+esac
 
 if [[ $CPU_BUILD == "yes" ]]; then
     BUILD_DIR=${MFEM_DIR}/build
-    if [[ ${DEBUG} == "yes" ]]; then
-        USER_CONFIG=${MFEM_DIR}/config/${HOST}_gcc11_dbg.mk
-    else
-        USER_CONFIG=${MFEM_DIR}/config/${HOST}_gcc11_rel.mk
-    fi
+    USER_CONFIG=${MFEM_DIR}/config/${HOST}_${COMPILER}_${MODE}.mk
 
     rm -rf ${BUILD_DIR}
     mkdir ${BUILD_DIR}
@@ -74,16 +90,16 @@ fi
 
 if [[ $CUDA_BUILD == "yes" ]]; then
     BUILD_DIR=${MFEM_DIR}/build
-    USER_CONFIG=${MFEM_DIR}/config/${HOST}_gcc11_cuda_rel.mk
+    USER_CONFIG=${MFEM_DIR}/config/${HOST}_${COMPILER}_cuda_${MODE}.mk
 
     rm -rf ${BUILD_DIR}
     mkdir ${BUILD_DIR}
     make BUILD_DIR=${BUILD_DIR} config USER_CONFIG=${USER_CONFIG}
     cp ${USER_CONFIG} ${BUILD_DIR}/config
     cd ${BUILD_DIR}
-    make -j${NP}
-    make examples -j${NP}
-    make install
+    #make -j${NP}
+    #make examples -j${NP}
+    #make install
 else
     echo -e "\n\nNot building for CUDA..."
 fi
