@@ -4799,6 +4799,82 @@ void HypreBoomerAMG::SetDefaultOptions()
    HYPRE_BoomerAMGSetTol(amg_precond, 0.0);
 }
 
+void HypreBoomerAMG::SetBoomerAMGFSAIOptions()
+{
+#if !defined(HYPRE_USING_GPU)
+   // AMG coarsening options:
+   HYPRE_Int    coarsen_type       = 10;   // 10 = HMIS, 8 = PMIS, 6 = Falgout, 0 = CLJP
+   HYPRE_Int    agg_levels         = 1;    // number of aggressive coarsening levels
+   HYPRE_Real   theta              = 0.25; // strength threshold: 0.25, 0.5, 0.8
+
+   // AMG interpolation options:
+   HYPRE_Int    interp_type        = 6;    // 6 = extended+i, 0 = classical
+   HYPRE_Int    Pmax               = 4;    // max number of elements per row in P
+
+   // AMG relaxation options:
+   HYPRE_Int    smooth_type        = 4;    // 4 = FSAI
+   HYPRE_Int    smooth_num_sweeps  = 1;    // relaxation sweeps on each level
+   HYPRE_Int    smooth_num_levels  = 25;   // max number of levels with complex smoothing
+   HYPRE_Int    fsai_algo_type     = 1;
+   HYPRE_Int    fsai_max_steps     = 5;
+   HYPRE_Int    fsai_max_step_size = 3;
+   HYPRE_Int    fsai_max_nnz_row   = 9;
+   HYPRE_Int    fsai_num_levels    = 2;
+   HYPRE_Int    fsai_eig_max_iters = 5;
+   HYPRE_Real   fsai_kap_tolerance = 1.0e-3;
+   HYPRE_Real   fsai_threshold     = 1.0e-2;
+#else
+   // AMG coarsening options:
+   HYPRE_Int    coarsen_type       = 8;    // 10 = HMIS, 8 = PMIS, 6 = Falgout, 0 = CLJP
+   HYPRE_Int    agg_levels         = 0;    // number of aggressive coarsening levels
+   HYPRE_Real   theta              = 0.25; // strength threshold: 0.25, 0.5, 0.8
+
+   // AMG interpolation options:
+   HYPRE_Int    interp_type        = 18;    // 6 = extended+i, or 18 = extended+e
+   HYPRE_Int    Pmax               = 4;     // max number of elements per row in P
+
+   // AMG relaxation options:
+   HYPRE_Int    smooth_type        = 4;     // 4 = FSAI
+   HYPRE_Int    smooth_num_sweeps  = 1;     // relaxation sweeps on each level
+   HYPRE_Int    smooth_num_levels  = 25;    // max number of levels with complex smoothing
+   HYPRE_Int    fsai_algo_type     = 3;
+   HYPRE_Int    fsai_max_steps     = 5;
+   HYPRE_Int    fsai_max_step_size = 3;
+   HYPRE_Int    fsai_max_nnz_row   = 9;
+   HYPRE_Int    fsai_num_levels    = 2;
+   HYPRE_Int    fsai_eig_max_iters = 5;
+   HYPRE_Real   fsai_kap_tolerance = 1.0e-3;
+   HYPRE_Real   fsai_threshold     = 1.0e-2;
+#endif
+
+   // Additional options:
+   HYPRE_Int    print_level        = 1;     // print AMG iterations? 1 = no, 2 = yes
+
+   /* FSAI options */
+   HYPRE_BoomerAMGSetSmoothType(amg_precond, smooth_type);
+   HYPRE_BoomerAMGSetSmoothNumSweeps(amg_precond, smooth_num_sweeps);
+   HYPRE_BoomerAMGSetSmoothNumLevels(amg_precond, smooth_num_levels);
+   HYPRE_BoomerAMGSetFSAIAlgoType(amg_precond, fsai_algo_type);
+   HYPRE_BoomerAMGSetFSAIMaxSteps(amg_precond, fsai_max_steps);
+   HYPRE_BoomerAMGSetFSAIMaxStepSize(amg_precond, fsai_max_step_size);
+   HYPRE_BoomerAMGSetFSAIMaxNnzRow(amg_precond, fsai_max_nnz_row);
+   HYPRE_BoomerAMGSetFSAINumLevels(amg_precond, fsai_num_levels);
+   HYPRE_BoomerAMGSetFSAIThreshold(amg_precond, fsai_threshold);
+   HYPRE_BoomerAMGSetFSAIEigMaxIters(amg_precond, fsai_eig_max_iters);
+   HYPRE_BoomerAMGSetFSAIKapTolerance(amg_precond, fsai_kap_tolerance);
+
+   HYPRE_BoomerAMGSetCoarsenType(amg_precond, coarsen_type);
+   HYPRE_BoomerAMGSetAggNumLevels(amg_precond, agg_levels);
+   HYPRE_BoomerAMGSetStrongThreshold(amg_precond, theta);
+   HYPRE_BoomerAMGSetInterpType(amg_precond, interp_type);
+   HYPRE_BoomerAMGSetPMaxElmts(amg_precond, Pmax);
+   HYPRE_BoomerAMGSetPrintLevel(amg_precond, print_level);
+
+   // Use as a preconditioner (one V-cycle, zero tolerance)
+   HYPRE_BoomerAMGSetMaxIter(amg_precond, 1);
+   HYPRE_BoomerAMGSetTol(amg_precond, 0.0);
+}
+
 void HypreBoomerAMG::ResetAMGPrecond()
 {
    HYPRE_Int coarsen_type;
