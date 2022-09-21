@@ -18,6 +18,9 @@ CMakeFiles/
 # Backup files
 *~
 
+# Default build location
+build/
+
 # Default install location
 /mfem/
 
