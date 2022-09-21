@@ -148,7 +148,7 @@ MFEM_USE_RAJA          = NO
 MFEM_USE_OCCA          = NO
 MFEM_USE_CEED          = NO
 MFEM_USE_CALIPER       = NO
-MFEM_USE_UMPIRE        = NO
+MFEM_USE_UMPIRE        = YES
 MFEM_USE_SIMD          = NO
 MFEM_USE_ADIOS2        = NO
 MFEM_USE_MKL_CPARDISO  = NO
@@ -178,7 +178,7 @@ HYPRE_OPT = -I$(HYPRE_DIR)/include
 HYPRE_LIB = $(XLINKER)-rpath,$(HYPRE_DIR)/lib -L$(HYPRE_DIR)/lib -lHYPRE
 ifeq (YES,$(MFEM_USE_CUDA))
    # This is only necessary when hypre is built with cuda:
-   HYPRE_LIB += -lcusparse -lcusolver -lcublas -lcudart -lnvToolsExt -lcurand
+   HYPRE_LIB += -lcusparse -lcusolver -lcublas -lcudart -lcurand -lnvToolsExt
 endif
 
 # METIS library configuration
@@ -447,7 +447,7 @@ endif
 RAJA_LIB = $(XLINKER)-rpath,$(RAJA_DIR)/lib -L$(RAJA_DIR)/lib -lRAJA
 
 # UMPIRE library configuration
-UMPIRE_DIR = $(PROJECTS)/umpire
+UMPIRE_DIR = $(PROJECTS)/umpire-2022.03.0/install/nvidia/release
 UMPIRE_OPT = -I$(UMPIRE_DIR)/include $(if $(CAMP_DIR), -I$(CAMP_DIR)/include)
 UMPIRE_LIB = -L$(UMPIRE_DIR)/lib -lumpire
 

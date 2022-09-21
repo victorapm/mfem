@@ -6,7 +6,8 @@ case $1 in
       cat <<EOF
       -d|--debug:   debug version
       -c|--cpu:     build for CPUs
-      -g|--gpu:     build for GPUs
+     -cu|--cuda:    build for CUDA
+     -hi|--hip:     build for HIP
       -t|--test:    Test the library
 EOF
       exit
@@ -15,7 +16,8 @@ esac
 
 DEBUG="no"
 CPU_BUILD="no"
-GPU_BUILD="no"
+CUDA_BUILD="no"
+HIP_BUILD="no"
 TEST="no"
 while [ "$*" ]; do
    case $1 in
@@ -27,8 +29,12 @@ while [ "$*" ]; do
          CPU_BUILD="yes"; shift
          ;;
 
-      -g|--gpu)
-         GPU_BUILD="yes"; shift
+     -cu|--cuda)
+         CUDA_BUILD="yes"; shift
+         ;;
+
+     -hi|--hip)
+         HIP_BUILD="yes"; shift
          ;;
 
       -t|--test)
@@ -43,12 +49,15 @@ while [ "$*" ]; do
 done
 
 MFEM_DIR=/home/victor/projects/mfem-vm
+HOST=$(hostname)
+NP=24
+
 if [[ $CPU_BUILD == "yes" ]]; then
     BUILD_DIR=${MFEM_DIR}/build
     if [[ ${DEBUG} == "yes" ]]; then
-        USER_CONFIG=${MFEM_DIR}/config/gcc11_dbg.mk
+        USER_CONFIG=${MFEM_DIR}/config/${HOST}_gcc11_dbg.mk
     else
-        USER_CONFIG=${MFEM_DIR}/config/gcc11_rel.mk
+        USER_CONFIG=${MFEM_DIR}/config/${HOST}_gcc11_rel.mk
     fi
 
     rm -rf ${BUILD_DIR}
@@ -56,27 +65,27 @@ if [[ $CPU_BUILD == "yes" ]]; then
     make BUILD_DIR=${BUILD_DIR} config USER_CONFIG=${USER_CONFIG}
     cp ${USER_CONFIG} ${BUILD_DIR}/config
     cd ${BUILD_DIR}
-    make -j
-    make examples -j
+    make -j${NP}
+    make examples -j${NP}
     make install
 else
     echo -e "Not building for CPUs..."
 fi
 
-if [[ $GPU_BUILD == "yes" ]]; then
+if [[ $CUDA_BUILD == "yes" ]]; then
     BUILD_DIR=${MFEM_DIR}/build
-    USER_CONFIG=${MFEM_DIR}/config/gcc11_cuda_rel.mk
+    USER_CONFIG=${MFEM_DIR}/config/${HOST}_gcc11_cuda_rel.mk
 
     rm -rf ${BUILD_DIR}
     mkdir ${BUILD_DIR}
     make BUILD_DIR=${BUILD_DIR} config USER_CONFIG=${USER_CONFIG}
     cp ${USER_CONFIG} ${BUILD_DIR}/config
     cd ${BUILD_DIR}
-    make all -j
-    #make examples -j
-    #make install
+    make -j${NP}
+    make examples -j${NP}
+    make install
 else
-    echo -e "\n\nNot building for GPUs..."
+    echo -e "\n\nNot building for CUDA..."
 fi
 
 if [[ $TEST == "yes" ]]; then
