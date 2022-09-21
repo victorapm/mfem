@@ -1539,7 +1539,7 @@ public:
    virtual void SetOperator(const Operator &op);
 
    /// Set BoomerAMG-FSAI options (FSAI is used as a smoother to BoomerAMG)
-   void SetBoomerAMGFSAIOptions();
+   void SetBoomerAMGFSAIOptions(int print_level);
 
    /** More robust options for systems, such as elasticity. */
    void SetSystemsOptions(int dim, bool order_bynodes=false);

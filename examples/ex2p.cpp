@@ -56,6 +56,7 @@ int main(int argc, char *argv[])
 
    // 2. Parse command-line options.
    const char *mesh_file = "../data/beam-tri.mesh";
+   int prec_print_level = 1;
    int order = 1;
    int serial_ref_levels = 4;
    int parallel_ref_levels = 1;
@@ -71,6 +72,8 @@ int main(int argc, char *argv[])
                   "Mesh file to use.");
    args.AddOption(&order, "-o", "--order",
                   "Finite element order (polynomial degree).");
+   args.AddOption(&prec_print_level, "-ppl", "--prec-print-level",
+                  "Hypre's preconditioner print level.");
    args.AddOption(&serial_ref_levels, "-sr", "--serial-ref",
                   "Number of refinement levels in serial.");
    args.AddOption(&parallel_ref_levels, "-pr", "--parallel-ref",
@@ -275,7 +278,7 @@ int main(int argc, char *argv[])
 
    if (amg_fsai)
    {
-      amg->SetBoomerAMGFSAIOptions();
+      amg->SetBoomerAMGFSAIOptions(prec_print_level);
    }
 
    HyprePCG *pcg = new HyprePCG(A);

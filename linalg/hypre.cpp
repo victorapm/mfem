@@ -86,8 +86,10 @@ void Hypre::SetDefaultOptions()
    // calling these functions, hypre doesn't own the pool and just uses it.If
    // these functions are not called, hypre will allocate and own the pool
    // (provided it is configured with --with-umpire).
-   // HYPRE_SetUmpireDevicePoolName("HYPRE_DEVICE_POOL");
+#if defined(HYPRE_USING_UMPIRE)
+   HYPRE_SetUmpireDevicePoolName("HYPRE_DEVICE_POOL");
    // HYPRE_SetUmpireUMPoolName("HYPRE_UVM_POOL");
+#endif
 }
 
 
@@ -4799,7 +4801,7 @@ void HypreBoomerAMG::SetDefaultOptions()
    HYPRE_BoomerAMGSetTol(amg_precond, 0.0);
 }
 
-void HypreBoomerAMG::SetBoomerAMGFSAIOptions()
+void HypreBoomerAMG::SetBoomerAMGFSAIOptions(int print_level)
 {
 #if !defined(HYPRE_USING_GPU)
    // AMG coarsening options:
@@ -4818,8 +4820,8 @@ void HypreBoomerAMG::SetBoomerAMGFSAIOptions()
    HYPRE_Int    fsai_algo_type     = 1;
    HYPRE_Int    fsai_max_steps     = 5;
    HYPRE_Int    fsai_max_step_size = 3;
-   HYPRE_Int    fsai_max_nnz_row   = 9;
-   HYPRE_Int    fsai_num_levels    = 2;
+   HYPRE_Int    fsai_max_nnz_row   = 8;
+   HYPRE_Int    fsai_num_levels    = 1;
    HYPRE_Int    fsai_eig_max_iters = 5;
    HYPRE_Real   fsai_kap_tolerance = 1.0e-3;
    HYPRE_Real   fsai_threshold     = 1.0e-2;
@@ -4840,15 +4842,12 @@ void HypreBoomerAMG::SetBoomerAMGFSAIOptions()
    HYPRE_Int    fsai_algo_type     = 3;
    HYPRE_Int    fsai_max_steps     = 5;
    HYPRE_Int    fsai_max_step_size = 3;
-   HYPRE_Int    fsai_max_nnz_row   = 9;
-   HYPRE_Int    fsai_num_levels    = 2;
+   HYPRE_Int    fsai_max_nnz_row   = 8;
+   HYPRE_Int    fsai_num_levels    = 1;
    HYPRE_Int    fsai_eig_max_iters = 5;
    HYPRE_Real   fsai_kap_tolerance = 1.0e-3;
-   HYPRE_Real   fsai_threshold     = 1.0e-2;
+   HYPRE_Real   fsai_threshold     = 1.0e-3;
 #endif
-
-   // Additional options:
-   HYPRE_Int    print_level        = 1;     // print AMG iterations? 1 = no, 2 = yes
 
    /* FSAI options */
    HYPRE_BoomerAMGSetSmoothType(amg_precond, smooth_type);
