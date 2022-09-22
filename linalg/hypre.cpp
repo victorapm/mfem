@@ -88,6 +88,7 @@ void Hypre::SetDefaultOptions()
    // (provided it is configured with --with-umpire).
 #if defined(HYPRE_USING_UMPIRE)
    HYPRE_SetUmpireDevicePoolName("HYPRE_DEVICE_POOL");
+   HYPRE_SetUmpireDevicePoolSize(8LL * 1024 * 1024 * 1024);
    // HYPRE_SetUmpireUMPoolName("HYPRE_UVM_POOL");
 #endif
 }
