@@ -66,6 +66,12 @@ int main(int argc, char *argv[])
    bool amg_fsai = false;
    bool reorder_space = false;
    bool save_results = 0;
+   int smooth_num_levels = -1;
+   int fsai_num_levels = -1;
+   int fsai_max_nnz_row = -1;
+   int fsai_eig_max_iters = -1;
+   double fsai_threshold = -1.0;
+
    const char *device_config = "cpu";
 
    OptionsParser args(argc, argv);
@@ -75,6 +81,16 @@ int main(int argc, char *argv[])
                   "Finite element order (polynomial degree).");
    args.AddOption(&prec_print_level, "-ppl", "--prec-print-level",
                   "Hypre's preconditioner print level.");
+   args.AddOption(&smooth_num_levels, "-smlv", "--smooth-num-levels",
+                  "Number of levels of FSAI smoothing.");
+   args.AddOption(&fsai_num_levels, "-fslv", "--fsai-num-levels",
+                  "Number of levels for computing the candidate pattern for FSAI.");
+   args.AddOption(&fsai_max_nnz_row, "-fsnnz", "--fsai-max-nnz-row",
+                  "Maximum number of nonzero entries per row for FSAI.");
+   args.AddOption(&fsai_eig_max_iters, "-fseig", "--fsai-eig-max-iters",
+                  "Number of iterations for computing max. eigenvalue of FSAI.");
+   args.AddOption(&fsai_threshold, "-fsth", "--fsai-threshold",
+                  "Threshold for filtering candidate pattern of FSAI.");
    args.AddOption(&serial_ref_levels, "-sr", "--serial-ref",
                   "Number of refinement levels in serial.");
    args.AddOption(&parallel_ref_levels, "-pr", "--parallel-ref",
@@ -281,7 +297,8 @@ int main(int argc, char *argv[])
 
    if (amg_fsai)
    {
-      amg->SetBoomerAMGFSAIOptions(prec_print_level);
+      amg->SetBoomerAMGFSAIOptions(prec_print_level, smooth_num_levels, fsai_num_levels,
+                                   fsai_max_nnz_row, fsai_eig_max_iters, fsai_threshold);
    }
 
    HyprePCG *pcg = new HyprePCG(A);

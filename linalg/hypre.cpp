@@ -62,7 +62,7 @@ void Hypre::SetDefaultOptions()
 #if MFEM_HYPRE_VERSION >= 22100
 #ifdef HYPRE_USING_CUDA
    // Use hypre's SpGEMM instead of cuSPARSE for performance reasons
-   HYPRE_SetSpGemmUseCusparse(0);
+   HYPRE_SetSpGemmUseVendor(0);
 #elif defined(HYPRE_USING_HIP)
    // Use rocSPARSE instead of hypre's SpGEMM for performance reasons (default)
    // HYPRE_SetSpGemmUseCusparse(1);
@@ -4801,7 +4801,12 @@ void HypreBoomerAMG::SetDefaultOptions()
    HYPRE_BoomerAMGSetTol(amg_precond, 0.0);
 }
 
-void HypreBoomerAMG::SetBoomerAMGFSAIOptions(int print_level)
+void HypreBoomerAMG::SetBoomerAMGFSAIOptions(int print_level,
+                                             int smooth_num_levels,
+                                             int fsai_num_levels,
+                                             int fsai_max_nnz_row,
+                                             int fsai_eig_max_iters,
+                                             double fsai_threshold)
 {
 #if !defined(HYPRE_USING_GPU)
    // AMG coarsening options:
@@ -4816,15 +4821,10 @@ void HypreBoomerAMG::SetBoomerAMGFSAIOptions(int print_level)
    // AMG relaxation options:
    HYPRE_Int    smooth_type        = 4;    // 4 = FSAI
    HYPRE_Int    smooth_num_sweeps  = 1;    // relaxation sweeps on each level
-   HYPRE_Int    smooth_num_levels  = 25;   // max number of levels with complex smoothing
    HYPRE_Int    fsai_algo_type     = 1;
    HYPRE_Int    fsai_max_steps     = 5;
    HYPRE_Int    fsai_max_step_size = 3;
-   HYPRE_Int    fsai_max_nnz_row   = 8;
-   HYPRE_Int    fsai_num_levels    = 1;
-   HYPRE_Int    fsai_eig_max_iters = 5;
    HYPRE_Real   fsai_kap_tolerance = 1.0e-3;
-   HYPRE_Real   fsai_threshold     = 1.0e-2;
 #else
    // AMG coarsening options:
    HYPRE_Int    coarsen_type       = 8;    // 10 = HMIS, 8 = PMIS, 6 = Falgout, 0 = CLJP
@@ -4838,16 +4838,19 @@ void HypreBoomerAMG::SetBoomerAMGFSAIOptions(int print_level)
    // AMG relaxation options:
    HYPRE_Int    smooth_type        = 4;     // 4 = FSAI
    HYPRE_Int    smooth_num_sweeps  = 1;     // relaxation sweeps on each level
-   HYPRE_Int    smooth_num_levels  = 25;    // max number of levels with complex smoothing
    HYPRE_Int    fsai_algo_type     = 3;
    HYPRE_Int    fsai_max_steps     = 5;
    HYPRE_Int    fsai_max_step_size = 3;
-   HYPRE_Int    fsai_max_nnz_row   = 8;
-   HYPRE_Int    fsai_num_levels    = 1;
-   HYPRE_Int    fsai_eig_max_iters = 5;
    HYPRE_Real   fsai_kap_tolerance = 1.0e-3;
-   HYPRE_Real   fsai_threshold     = 1.0e-3;
 #endif
+
+   /* Set input options to a default value if they are negative */
+   print_level        = (print_level < 0)        ?     0 : print_level;
+   smooth_num_levels  = (smooth_num_levels < 0)  ?     5 : smooth_num_levels;
+   fsai_num_levels    = (fsai_num_levels < 0)    ?     1 : fsai_num_levels;
+   fsai_max_nnz_row   = (fsai_max_nnz_row < 0)   ?     8 : fsai_max_nnz_row;
+   fsai_eig_max_iters = (fsai_eig_max_iters < 0) ?     5 : fsai_eig_max_iters;
+   fsai_threshold     = (fsai_threshold < 0.0)   ? 0.001 : fsai_threshold;
 
    /* FSAI options */
    HYPRE_BoomerAMGSetSmoothType(amg_precond, smooth_type);
