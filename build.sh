@@ -97,9 +97,9 @@ if [[ $CUDA_BUILD == "yes" ]]; then
     make BUILD_DIR=${BUILD_DIR} config USER_CONFIG=${USER_CONFIG}
     cp ${USER_CONFIG} ${BUILD_DIR}/config
     cd ${BUILD_DIR}
-    #make -j${NP}
-    #make examples -j${NP}
-    #make install
+    make -j${NP}
+    make examples -j${NP}
+    make install
 else
     echo -e "\n\nNot building for CUDA..."
 fi
