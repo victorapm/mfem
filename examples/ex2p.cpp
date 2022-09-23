@@ -60,6 +60,7 @@ int main(int argc, char *argv[])
    int order = 1;
    int serial_ref_levels = 4;
    int parallel_ref_levels = 1;
+   int num_reps = 10;
    bool static_cond = false;
    bool visualization = true;
    bool amg_elast = false;
@@ -80,6 +81,12 @@ int main(int argc, char *argv[])
                   "Mesh file to use.");
    args.AddOption(&order, "-o", "--order",
                   "Finite element order (polynomial degree).");
+   args.AddOption(&serial_ref_levels, "-sr", "--serial-ref",
+                  "Number of refinement levels in serial.");
+   args.AddOption(&parallel_ref_levels, "-pr", "--parallel-ref",
+                  "Number of refinement levels in parallel.");
+   args.AddOption(&num_reps, "-nr", "--num-reps",
+                  "Number of repetitions for the linear solver Setup/Solve phases.");
    args.AddOption(&prec_print_level, "-ppl", "--prec-print-level",
                   "Hypre's preconditioner print level.");
    args.AddOption(&smooth_num_levels, "-smlv", "--smooth-num-levels",
@@ -94,10 +101,6 @@ int main(int argc, char *argv[])
                   "Threshold for filtering candidate pattern of FSAI.");
    args.AddOption(&amg_theta, "-amgth", "--amg-theta",
                   "Threshold for defining strong coupling during AMG coarsening.");
-   args.AddOption(&serial_ref_levels, "-sr", "--serial-ref",
-                  "Number of refinement levels in serial.");
-   args.AddOption(&parallel_ref_levels, "-pr", "--parallel-ref",
-                  "Number of refinement levels in parallel.");
    args.AddOption(&amg_elast, "-elast", "--amg-for-elasticity", "-sys",
                   "--amg-for-systems",
                   "Use the special AMG elasticity solver (GM/LN approaches), "
@@ -306,15 +309,27 @@ int main(int argc, char *argv[])
    amg->SetBoomerAMGPrintLevel(prec_print_level);
    amg->SetBoomerAMGStrongThreshold(amg_theta);
 
-   HyprePCG *pcg = new HyprePCG(A);
-   pcg->SetTol(1e-8);
-   pcg->SetMaxIter(500);
-   pcg->SetPrintLevel(2);
-   pcg->SetPreconditioner(*amg);
-   pcg->Mult(B, X);
-   if (!myid)
+   for (int i = 0; i < num_reps; i++)
    {
-      cout << "Solve is complete!" << endl;
+      if (!myid)
+      {
+         cout << endl;
+         cout << "=============================================" << endl;
+         cout << "Pass #" << i << "..." << endl;
+         cout << "=============================================" << endl;
+         cout << endl;
+      }
+
+      HyprePCG *pcg = new HyprePCG(A);
+      pcg->SetTol(1e-8);
+      pcg->SetMaxIter(500);
+      pcg->SetPrintLevel(0);
+      pcg->SetPreconditioner(*amg);
+      pcg->Mult(B, X);
+
+      if (i < (num_reps - 1)) X = 0.0;
+
+      delete pcg;
    }
 
    // 15. Recover the parallel grid function corresponding to X. This is the
@@ -368,7 +383,6 @@ int main(int argc, char *argv[])
    }
 
    // 19. Free the used memory.
-   delete pcg;
    delete amg;
    delete a;
    delete b;
