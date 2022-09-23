@@ -4802,6 +4802,22 @@ void HypreBoomerAMG::SetDefaultOptions()
    HYPRE_BoomerAMGSetTol(amg_precond, 0.0);
 }
 
+void HypreBoomerAMG::SetBoomerAMGStrongThreshold(double theta)
+{
+   if (theta >= 0.0)
+   {
+      HYPRE_BoomerAMGSetStrongThreshold(amg_precond, theta);
+   }
+}
+
+void HypreBoomerAMG::SetBoomerAMGPrintLevel(int print_level)
+{
+   if (print_level >= 0)
+   {
+      HYPRE_BoomerAMGSetPrintLevel(amg_precond, print_level);
+   }
+}
+
 void HypreBoomerAMG::SetBoomerAMGFSAIOptions(int print_level,
                                              int smooth_num_levels,
                                              int fsai_num_levels,

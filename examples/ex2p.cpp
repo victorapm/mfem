@@ -65,7 +65,8 @@ int main(int argc, char *argv[])
    bool amg_elast = false;
    bool amg_fsai = false;
    bool reorder_space = false;
-   bool save_results = 0;
+   bool save_results = false;
+   double amg_theta = -1.0;
    int smooth_num_levels = -1;
    int fsai_num_levels = -1;
    int fsai_max_nnz_row = -1;
@@ -91,6 +92,8 @@ int main(int argc, char *argv[])
                   "Number of iterations for computing max. eigenvalue of FSAI.");
    args.AddOption(&fsai_threshold, "-fsth", "--fsai-threshold",
                   "Threshold for filtering candidate pattern of FSAI.");
+   args.AddOption(&amg_theta, "-amgth", "--amg-theta",
+                  "Threshold for defining strong coupling during AMG coarsening.");
    args.AddOption(&serial_ref_levels, "-sr", "--serial-ref",
                   "Number of refinement levels in serial.");
    args.AddOption(&parallel_ref_levels, "-pr", "--parallel-ref",
@@ -300,6 +303,8 @@ int main(int argc, char *argv[])
       amg->SetBoomerAMGFSAIOptions(prec_print_level, smooth_num_levels, fsai_num_levels,
                                    fsai_max_nnz_row, fsai_eig_max_iters, fsai_threshold);
    }
+   amg->SetBoomerAMGPrintLevel(prec_print_level);
+   amg->SetBoomerAMGStrongThreshold(amg_theta);
 
    HyprePCG *pcg = new HyprePCG(A);
    pcg->SetTol(1e-8);
@@ -307,6 +312,10 @@ int main(int argc, char *argv[])
    pcg->SetPrintLevel(2);
    pcg->SetPreconditioner(*amg);
    pcg->Mult(B, X);
+   if (!myid)
+   {
+      cout << "Solve is complete!" << endl;
+   }
 
    // 15. Recover the parallel grid function corresponding to X. This is the
    //     local finite element solution on each processor.

@@ -1538,6 +1538,12 @@ public:
 
    virtual void SetOperator(const Operator &op);
 
+   /// Set BoomerAMG print level
+   void SetBoomerAMGPrintLevel(int print_level);
+
+   /// Set BoomerAMG coarsening threshold
+   void SetBoomerAMGStrongThreshold(double theta);
+
    /// Set BoomerAMG-FSAI options (FSAI is used as a smoother to BoomerAMG)
    void SetBoomerAMGFSAIOptions(int print_level,
                                 int smooth_num_levels,
