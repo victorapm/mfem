@@ -4818,6 +4818,14 @@ void HypreBoomerAMG::SetBoomerAMGPrintLevel(int print_level)
    }
 }
 
+void HypreBoomerAMG::SetBoomerAMGRelaxType(int relax_type)
+{
+   if (relax_type > 0)
+   {
+      HYPRE_BoomerAMGSetRelaxType(amg_precond, relax_type);
+   }
+}
+
 void HypreBoomerAMG::SetBoomerAMGFSAIOptions(int print_level,
                                              int smooth_num_levels,
                                              int fsai_num_levels,

@@ -1544,6 +1544,9 @@ public:
    /// Set BoomerAMG coarsening threshold
    void SetBoomerAMGStrongThreshold(double theta);
 
+   /// Set BoomerAMG relaxation type
+   void SetBoomerAMGRelaxType(int relax_type);
+
    /// Set BoomerAMG-FSAI options (FSAI is used as a smoother to BoomerAMG)
    void SetBoomerAMGFSAIOptions(int print_level,
                                 int smooth_num_levels,
