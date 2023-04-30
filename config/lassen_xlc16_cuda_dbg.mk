@@ -27,7 +27,7 @@ COMPILER_VERSION = 2021.09.22
 
 BASE_FLAGS  = -std=c++11
 OPTIM_FLAGS = -O3 $(BASE_FLAGS)
-DEBUG_FLAGS = -g $(XCOMPILER)-Wall $(BASE_FLAGS)
+DEBUG_FLAGS = -g -O0 -lineinfo $(XCOMPILER)-Wall $(BASE_FLAGS)
 
 # Prefixes for passing flags to the compiler and linker when using CXX or MPICXX
 CXX_XCOMPILER =

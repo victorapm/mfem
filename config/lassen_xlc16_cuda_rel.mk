@@ -177,7 +177,7 @@ LIBUNWIND_OPT = -g
 LIBUNWIND_LIB = $(if $(NOTMAC),-lunwind -ldl,)
 
 # HYPRE library configuration (needed to build the parallel version)
-HYPRE_CONFIG = xl-$(COMPILER_VERSION)_cuda-$(CUDA_VERSION)_umpire_rel
+HYPRE_CONFIG = xl-$(COMPILER_VERSION)_cuda-$(CUDA_VERSION)_mixint_umpire_rel
 HYPRE_DIR = $(WORK)/projects/hypre-mfem/$(HYPRE_CONFIG)
 HYPRE_OPT = -I$(HYPRE_DIR)/include
 HYPRE_LIB = $(XLINKER)-rpath,$(HYPRE_DIR)/lib -L$(HYPRE_DIR)/lib -lHYPRE
