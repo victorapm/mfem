@@ -1,4 +1,4 @@
-// Copyright (c) 2010-2022, Lawrence Livermore National Security, LLC. Produced
+// Copyright (c) 2010-2023, Lawrence Livermore National Security, LLC. Produced
 // at the Lawrence Livermore National Laboratory. All Rights reserved. See files
 // LICENSE and NOTICE for details. LLNL-CODE-806117.
 //
@@ -154,6 +154,13 @@ struct LinearFormExtTest
          lf_dev.AddBoundaryIntegrator(lfi_dev);
          lf_std.AddBoundaryIntegrator(lfi_std);
       }
+
+      // Test accumulation of integrators
+      if (vdim == 1)
+      {
+         lf_dev.AddDomainIntegrator(new DomainLFIntegrator(fn_coeff));
+         lf_std.AddDomainIntegrator(new DomainLFIntegrator(fn_coeff));
+      }
    }
 
    void Run()
@@ -168,11 +175,11 @@ struct LinearFormExtTest
 
       CAPTURE(mesh_filename, dim, p, q, ordering, vdim, scalar, grad);
 
-      const bool use_device = true;
-      lf_dev.Assemble(use_device);
+      lf_dev.UseFastAssembly(true);
+      lf_dev.Assemble();
 
-      const bool dont_use_device = false;
-      lf_std.Assemble(dont_use_device);
+      lf_std.UseFastAssembly(false);
+      lf_std.Assemble();
 
       lf_std -= lf_dev;
       REQUIRE(0.0 == MFEM_Approx(lf_std*lf_std, abs_tol, rel_tol));
@@ -233,11 +240,13 @@ TEST_CASE("Linear Form Extension", "[LinearFormExtension], [CUDA]")
 
       LinearForm d1(&L2fes);
       d1.AddDomainIntegrator(new DomainLFIntegrator(norm2_grad_x));
+      d1.UseFastAssembly(true);
       d1.Assemble();
 
       LinearForm d2(&L2fes);
       d2.AddDomainIntegrator(new DomainLFIntegrator(norm2_grad_x));
-      d2.Assemble(false);
+      d2.UseFastAssembly(false);
+      d2.Assemble();
 
       d1 -= d2;
 
@@ -259,11 +268,13 @@ TEST_CASE("Linear Form Extension", "[LinearFormExtension], [CUDA]")
 
       LinearForm d1(&fes);
       d1.AddDomainIntegrator(new DomainLFIntegrator(coeff));
+      d1.UseFastAssembly(true);
       d1.Assemble();
 
       LinearForm d2(&fes);
       d2.AddDomainIntegrator(new DomainLFIntegrator(coeff));
-      d2.Assemble(false);
+      d2.UseFastAssembly(false);
+      d2.Assemble();
 
       CAPTURE(d1.Norml2(), d2.Norml2());
 
@@ -271,4 +282,68 @@ TEST_CASE("Linear Form Extension", "[LinearFormExtension], [CUDA]")
 
       REQUIRE(d1.Norml2() == MFEM_Approx(0.0));
    }
+
+   SECTION("VectorFE")
+   {
+      Mesh mesh(mesh_file);
+      const int dim = mesh.Dimension();
+
+      CAPTURE(mesh_file, dim, p);
+
+      RT_FECollection fec(p-1, dim);
+      FiniteElementSpace fes(&mesh, &fec);
+
+      FunctionCoefficient coeff(f);
+
+      LinearForm d1(&fes);
+      d1.AddBoundaryIntegrator(new VectorFEBoundaryFluxLFIntegrator(coeff));
+      d1.UseFastAssembly(true);
+      d1.Assemble();
+
+      LinearForm d2(&fes);
+      d2.AddBoundaryIntegrator(new VectorFEBoundaryFluxLFIntegrator(coeff));
+      d2.UseFastAssembly(false);
+      d2.Assemble();
+
+      CAPTURE(d1.Norml2(), d2.Norml2());
+
+      d1 -= d2;
+
+      REQUIRE(d1.Norml2() == MFEM_Approx(0.0));
+   }
+}
+
+TEST_CASE("H(div) Linear Form Extension", "[LinearFormExtension], [CUDA]")
+{
+   const bool all = launch_all_non_regression_tests;
+
+   const auto mesh_file =
+      all ? GENERATE("../../data/star.mesh", "../../data/star-q3.mesh",
+                     "../../data/fichera.mesh", "../../data/fichera-q3.mesh") :
+      GENERATE("../../data/star-q3.mesh", "../../data/fichera-q3.mesh");
+   const auto p = all ? GENERATE(1,2,3,4,5,6) : GENERATE(1,3);
+
+   Mesh mesh(mesh_file);
+   const int dim = mesh.Dimension();
+
+   CAPTURE(mesh_file, dim, p);
+
+   RT_FECollection fec(p, dim);
+   FiniteElementSpace fes(&mesh, &fec);
+
+   VectorFunctionCoefficient coeff(dim, fvec_dim);
+
+   LinearForm d1(&fes);
+   d1.AddDomainIntegrator(new VectorFEDomainLFIntegrator(coeff));
+   d1.UseFastAssembly(true);
+   d1.Assemble();
+
+   LinearForm d2(&fes);
+   d2.AddDomainIntegrator(new VectorFEDomainLFIntegrator(coeff));
+   d2.UseFastAssembly(false);
+   d2.Assemble();
+
+   CAPTURE(d1.Norml2(), d2.Norml2());
+   d1 -= d2;
+   REQUIRE(d1.Norml2() == MFEM_Approx(0.0));
 }

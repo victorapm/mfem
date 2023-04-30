@@ -1,4 +1,4 @@
-// Copyright (c) 2010-2022, Lawrence Livermore National Security, LLC. Produced
+// Copyright (c) 2010-2023, Lawrence Livermore National Security, LLC. Produced
 // at the Lawrence Livermore National Laboratory. All Rights reserved. See files
 // LICENSE and NOTICE for details. LLNL-CODE-806117.
 //
@@ -151,14 +151,14 @@ void ParGridFunction::ParallelAverage(Vector &tv) const
 {
    MFEM_VERIFY(pfes->Conforming(), "not implemented for NC meshes");
    pfes->GetProlongationMatrix()->MultTranspose(*this, tv);
-   pfes->DivideByGroupSize(tv);
+   pfes->DivideByGroupSize(tv.HostReadWrite());
 }
 
 void ParGridFunction::ParallelAverage(HypreParVector &tv) const
 {
    MFEM_VERIFY(pfes->Conforming(), "not implemented for NC meshes");
    pfes->GetProlongationMatrix()->MultTranspose(*this, tv);
-   pfes->DivideByGroupSize(tv);
+   pfes->DivideByGroupSize(tv.HostReadWrite());
 }
 
 HypreParVector *ParGridFunction::ParallelAverage() const
@@ -230,7 +230,7 @@ void ParGridFunction::ExchangeFaceNbrData()
 
    auto d_data = this->Read();
    auto d_send_data = send_data.Write();
-   MFEM_FORALL(i, send_data.Size(),
+   mfem::forall(send_data.Size(), [=] MFEM_HOST_DEVICE (int i)
    {
       const int ldof = d_send_ldof[i];
       d_send_data[i] = d_data[ldof >= 0 ? ldof : -1-ldof];
@@ -353,7 +353,7 @@ void ParGridFunction::GetVectorValue(int i, const IntegrationPoint &ip,
          val.SetSize(vdim);
          for (int k = 0; k < vdim; k++)
          {
-            val(k) = shape * ((const double *)loc_data + dof * k);
+            val(k) = shape * (&loc_data[dof * k]);
          }
       }
       else
@@ -468,7 +468,7 @@ void ParGridFunction::GetVectorValue(ElementTransformation &T,
       val.SetSize(vdim);
       for (int k = 0; k < vdim; k++)
       {
-         val(k) = shape * ((const double *)loc_data + dof * k);
+         val(k) = shape * (&loc_data[dof * k]);
       }
    }
    else
@@ -480,6 +480,15 @@ void ParGridFunction::GetVectorValue(ElementTransformation &T,
       val.SetSize(vdim);
       vshape.MultTranspose(loc_data, val);
    }
+}
+
+void ParGridFunction::CountElementsPerVDof(Array<int> &elem_per_vdof) const
+{
+   GridFunction::CountElementsPerVDof(elem_per_vdof);
+   // Count the zones globally.
+   GroupCommunicator &gcomm = this->ParFESpace()->GroupComm();
+   gcomm.Reduce<int>(elem_per_vdof, GroupCommunicator::Sum);
+   gcomm.Bcast(elem_per_vdof);
 }
 
 void ParGridFunction::GetDerivative(int comp, int der_comp,
@@ -644,9 +653,9 @@ void ParGridFunction::ProjectBdrCoefficient(
 
    // Count the values globally.
    GroupCommunicator &gcomm = pfes->GroupComm();
-   gcomm.Reduce<int>(values_counter, GroupCommunicator::Sum);
+   gcomm.Reduce<int>(values_counter.HostReadWrite(), GroupCommunicator::Sum);
    // Accumulate the values globally.
-   gcomm.Reduce<double>(values, GroupCommunicator::Sum);
+   gcomm.Reduce<double>(values.HostReadWrite(), GroupCommunicator::Sum);
    // Only the values in the master are guaranteed to be correct!
    for (int i = 0; i < values.Size(); i++)
    {
@@ -682,9 +691,9 @@ void ParGridFunction::ProjectBdrCoefficientTangent(VectorCoefficient &vcoeff,
 
    // Count the values globally.
    GroupCommunicator &gcomm = pfes->GroupComm();
-   gcomm.Reduce<int>(values_counter, GroupCommunicator::Sum);
+   gcomm.Reduce<int>(values_counter.HostReadWrite(), GroupCommunicator::Sum);
    // Accumulate the values globally.
-   gcomm.Reduce<double>(values, GroupCommunicator::Sum);
+   gcomm.Reduce<double>(values.HostReadWrite(), GroupCommunicator::Sum);
    // Only the values in the master are guaranteed to be correct!
    for (int i = 0; i < values.Size(); i++)
    {
@@ -1109,11 +1118,11 @@ void ParGridFunction::ComputeFlux(
    SumFluxAndCount(blfi, flux, count, wcoef, subdomain);
 
    // Accumulate flux and counts in parallel
-   ffes->GroupComm().Reduce<double>(flux, GroupCommunicator::Sum);
-   ffes->GroupComm().Bcast<double>(flux);
+   ffes->GroupComm().Reduce<double>(flux.HostReadWrite(), GroupCommunicator::Sum);
+   ffes->GroupComm().Bcast<double>(flux.HostReadWrite());
 
-   ffes->GroupComm().Reduce<int>(count, GroupCommunicator::Sum);
-   ffes->GroupComm().Bcast<int>(count);
+   ffes->GroupComm().Reduce<int>(count.HostReadWrite(), GroupCommunicator::Sum);
+   ffes->GroupComm().Bcast<int>(count.HostReadWrite());
 
    // complete averaging
    for (int i = 0; i < count.Size(); i++)
