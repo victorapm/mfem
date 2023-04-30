@@ -88,7 +88,7 @@ void Hypre::SetDefaultOptions()
    // (provided it is configured with --with-umpire).
 #if defined(HYPRE_USING_UMPIRE)
    HYPRE_SetUmpireDevicePoolName("HYPRE_DEVICE_POOL");
-   HYPRE_SetUmpireDevicePoolSize(8LL * 1024 * 1024 * 1024);
+   HYPRE_SetUmpireDevicePoolSize(10UL * 1000UL * 1000UL * 1000UL);
    // HYPRE_SetUmpireUMPoolName("HYPRE_UVM_POOL");
 #endif
 }
@@ -4800,6 +4800,14 @@ void HypreBoomerAMG::SetDefaultOptions()
    // Use as a preconditioner (one V-cycle, zero tolerance)
    HYPRE_BoomerAMGSetMaxIter(amg_precond, 1);
    HYPRE_BoomerAMGSetTol(amg_precond, 0.0);
+}
+
+void HypreBoomerAMG::SetBoomerAMGAggNumLevels(int agg_num_levels)
+{
+   if (agg_num_levels >= 0)
+   {
+      HYPRE_BoomerAMGSetAggNumLevels(amg_precond, agg_num_levels);
+   }
 }
 
 void HypreBoomerAMG::SetBoomerAMGStrongThreshold(double theta)

@@ -68,6 +68,8 @@ int main(int argc, char *argv[])
    bool reorder_space = false;
    bool save_results = false;
    double amg_theta = -1.0;
+   int amg_relax_type = -1;
+   int amg_agg_num_levels = -1;
    int smooth_num_levels = -1;
    int fsai_num_levels = -1;
    int fsai_max_nnz_row = -1;
@@ -101,12 +103,16 @@ int main(int argc, char *argv[])
                   "Threshold for filtering candidate pattern of FSAI.");
    args.AddOption(&amg_theta, "-amgth", "--amg-theta",
                   "Threshold for defining strong coupling during AMG coarsening.");
+   args.AddOption(&amg_agg_num_levels, "-amgagg", "--amg-agg-num-levels",
+                  "Number of aggressive coarsening levels.");
+   args.AddOption(&amg_relax_type, "-amgrt", "--amg-relax-type",
+                  "Relaxation type for BoomerAMG.");
+   args.AddOption(&amg_fsai, "-fsai", "--amg-fsai", "-no-fsai", "--no-amg-fsai",
+                  "Use FSAI as a complex smoother to BoomerAMG");
    args.AddOption(&amg_elast, "-elast", "--amg-for-elasticity", "-sys",
                   "--amg-for-systems",
                   "Use the special AMG elasticity solver (GM/LN approaches), "
                   "or standard AMG for systems (unknown approach).");
-   args.AddOption(&amg_fsai, "-fsai", "--amg-fsai", "-no-fsai", "--no-amg-fsai",
-                  "Use FSAI as a complex smoother to BoomerAMG");
    args.AddOption(&static_cond, "-sc", "--static-condensation", "-no-sc",
                   "--no-static-condensation", "Enable static condensation.");
    args.AddOption(&visualization, "-vis", "--visualization", "-no-vis",
@@ -290,25 +296,6 @@ int main(int argc, char *argv[])
 
    // 14. Define and apply a parallel PCG solver for A X = B with the BoomerAMG
    //     preconditioner from hypre.
-   HypreBoomerAMG *amg = new HypreBoomerAMG(A);
-
-   if (amg_elast && !a->StaticCondensationIsEnabled())
-   {
-      amg->SetElasticityOptions(fespace);
-   }
-   else
-   {
-      amg->SetSystemsOptions(dim, reorder_space);
-   }
-
-   if (amg_fsai)
-   {
-      amg->SetBoomerAMGFSAIOptions(prec_print_level, smooth_num_levels, fsai_num_levels,
-                                   fsai_max_nnz_row, fsai_eig_max_iters, fsai_threshold);
-   }
-   amg->SetBoomerAMGPrintLevel(prec_print_level);
-   amg->SetBoomerAMGStrongThreshold(amg_theta);
-
    for (int i = 0; i < num_reps; i++)
    {
       if (!myid)
@@ -320,6 +307,91 @@ int main(int argc, char *argv[])
          cout << endl;
       }
 
+      HypreBoomerAMG *amg = new HypreBoomerAMG(A);
+
+      if (amg_elast && !a->StaticCondensationIsEnabled())
+      {
+         amg->SetElasticityOptions(fespace);
+      }
+      else
+      {
+         amg->SetSystemsOptions(dim, reorder_space);
+      }
+
+      if (amg_fsai)
+      {
+         amg->SetBoomerAMGFSAIOptions(prec_print_level, smooth_num_levels, fsai_num_levels,
+                                      fsai_max_nnz_row, fsai_eig_max_iters, fsai_threshold);
+      }
+      amg->SetBoomerAMGPrintLevel(prec_print_level);
+      amg->SetBoomerAMGStrongThreshold(amg_theta);
+      amg->SetBoomerAMGRelaxType(amg_relax_type);
+      amg->SetBoomerAMGAggNumLevels(amg_agg_num_levels);
+
+      HyprePCG *pcg = new HyprePCG(A);
+      pcg->SetTol(1e-8);
+      pcg->SetMaxIter(500);
+      pcg->SetPrintLevel(2);
+      pcg->SetPreconditioner(*amg);
+      pcg->Mult(B, X);
+
+      if (i < (num_reps - 1)) X = 0.0;
+
+      delete amg;
+      delete pcg;
+
+      /* Print Umpire statistics */
+#if defined (HYPRE_USING_UMPIRE)
+      {
+         hypre_Handle *handle = hypre_handle();
+         const char *pool_name = hypre_HandleUmpireDevicePoolName(handle);
+         umpire_resourcemanager *rm_ptr = &hypre_HandleUmpireResourceMan(handle);
+         umpire_allocator pooled_allocator;
+
+         if ( umpire_resourcemanager_is_allocator_name(rm_ptr, pool_name) )
+         {
+            umpire_resourcemanager_get_allocator_by_name(rm_ptr, pool_name, &pooled_allocator);
+            if (!myid)
+            {
+              cout << "[0]:       Pool name: "
+                   << pool_name << endl
+                   << "    Actual size (GB): "
+                   << (double) umpire_allocator_get_actual_size(&pooled_allocator) / 1e9 << endl
+                   << "   Current size (GB): "
+                   << (double) umpire_allocator_get_current_size(&pooled_allocator) / 1e9 << endl
+                   << " High watermark (GB): "
+                   << (double) umpire_allocator_get_high_watermark(&pooled_allocator) / 1e9
+                   << endl;
+            }
+         }
+      }
+#endif
+   }
+
+   // Additional run to print statistics (not counted for performance)
+   if (prec_print_level == 0)
+   {
+      HypreBoomerAMG *amg = new HypreBoomerAMG(A);
+
+      if (amg_elast && !a->StaticCondensationIsEnabled())
+      {
+         amg->SetElasticityOptions(fespace);
+      }
+      else
+      {
+         amg->SetSystemsOptions(dim, reorder_space);
+      }
+
+      if (amg_fsai)
+      {
+         amg->SetBoomerAMGFSAIOptions(1, smooth_num_levels, fsai_num_levels,
+                                      fsai_max_nnz_row, fsai_eig_max_iters, fsai_threshold);
+      }
+      amg->SetBoomerAMGPrintLevel(1);
+      amg->SetBoomerAMGStrongThreshold(amg_theta);
+      amg->SetBoomerAMGRelaxType(amg_relax_type);
+      amg->SetBoomerAMGAggNumLevels(amg_agg_num_levels);
+
       HyprePCG *pcg = new HyprePCG(A);
       pcg->SetTol(1e-8);
       pcg->SetMaxIter(500);
@@ -327,8 +399,7 @@ int main(int argc, char *argv[])
       pcg->SetPreconditioner(*amg);
       pcg->Mult(B, X);
 
-      if (i < (num_reps - 1)) X = 0.0;
-
+      delete amg;
       delete pcg;
    }
 
@@ -383,7 +454,6 @@ int main(int argc, char *argv[])
    }
 
    // 19. Free the used memory.
-   delete amg;
    delete a;
    delete b;
    if (fec)

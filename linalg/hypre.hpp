@@ -1541,6 +1541,9 @@ public:
    /// Set BoomerAMG print level
    void SetBoomerAMGPrintLevel(int print_level);
 
+   /// Set BoomerAMG number of aggressive coarsening levels
+   void SetBoomerAMGAggNumLevels(int agg_num_levels);
+
    /// Set BoomerAMG coarsening threshold
    void SetBoomerAMGStrongThreshold(double theta);
 
