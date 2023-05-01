@@ -65,6 +65,10 @@ void Hypre::SetDefaultOptions()
 #endif
 #endif
 
+#if defined(HYPRE_USING_MEMORY_TRACKER)
+   hypre_MemoryTrackerSetPrint(1);
+#endif
+
    // The following options are hypre's defaults as of hypre-2.24
 
    // Allocate hypre objects in GPU memory (default)
