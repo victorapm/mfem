@@ -15,7 +15,7 @@ esac
 
 CWD=$(pwd)
 MFEM_DIR=${HOME}/projects/forks/mfem-dev
-HOST=${LCSCHEDCLUSTER}
+HOST=${HOST:-$(hostname)}
 DEBUG="no"
 BUILD_TYPE="none"
 TEST="no"
@@ -79,12 +79,15 @@ case ${HOST} in
         COMPILER="xlc"
         COMPILER_VERSION=16
         CUDA_VERSION=11.2.0
+        WORK=${WORK}
         module load cuda/${CUDA_VERSION}
         ;;
 
     "nztux")
         NP=24
-        COMPILER="gcc11"
+        COMPILER="gcc"
+        COMPILER_VERSION=11.3.0
+        WORK=${HOME}
         ;;
 
     "tioga")
@@ -93,6 +96,7 @@ case ${HOST} in
         COMPILER_VERSION=15.0.1
         ROCM_VERSION=5.4.0
         BUILD_TYPE+="-${ROCM_VERSION}"
+        WORK=${WORK}
         module load rocm/${ROCM_VERSION}
         ;;
 
@@ -102,11 +106,11 @@ case ${HOST} in
         ;;
 esac
 
-BUILD_DIR=${WORK}/projects/forks/mfem-dev/build
+MFEM_BUILD_DIR=${WORK}/projects/forks/mfem-dev/build
 if [[ ${CLEAN} == "yes" ]]; then
-    rm -rf ${BUILD_DIR}
+    rm -rf ${MFEM_BUILD_DIR}
 fi
-mkdir -p ${BUILD_DIR}
+mkdir -p ${MFEM_BUILD_DIR}
 
 # Set user config
 CONFIG_SUFFIX=${COMPILER}-${COMPILER_VERSION}_${BUILD_TYPE}_${MODE}
@@ -115,14 +119,14 @@ if [[ ! -f ${USER_CONFIG} ]]; then
     echo -e "Config file not found! ${USER_CONFIG}"
     exit 0
 fi
-INSTALL_DIR=${WORK}/projects/forks/mfem-dev/install/${CONFIG_SUFFIX}
+MFEM_INSTALL_DIR=${WORK}/projects/forks/mfem-dev/install/${CONFIG_SUFFIX}
 
-make BUILD_DIR=${BUILD_DIR} config USER_CONFIG=${USER_CONFIG}
-cp ${USER_CONFIG} ${BUILD_DIR}/config
-cd ${BUILD_DIR}
+make BUILD_DIR=${MFEM_BUILD_DIR} config USER_CONFIG=${USER_CONFIG}
+cp ${USER_CONFIG} ${MFEM_BUILD_DIR}/config
+cd ${MFEM_BUILD_DIR}
 make -j${NP}
 make examples -j${NP}
-make install
+make install PREFIX=${MFEM_INSTALL_DIR}
 
 # Test library integration
 if [[ $TEST == "yes" ]]; then
@@ -131,8 +135,8 @@ if [[ $TEST == "yes" ]]; then
 fi
 
 # Build a few drivers
-mkdir -p ${INSTALL_DIR}/bin
-cp -rfv ${BUILD_DIR}/examples/ex2p ${INSTALL_DIR}/bin
+mkdir -p ${MFEM_INSTALL_DIR}/bin
+cp -rfv ${MFEM_BUILD_DIR}/examples/ex2p ${MFEM_INSTALL_DIR}/bin
 
 # Go back to starting folder
 cd ${CWD}
