@@ -4,42 +4,60 @@
 case $1 in
    -h|-help)
       cat <<EOF
-      -d|--debug:   debug version
-      -c|--cpu:     build for CPUs
-     -cu|--cuda:    build for CUDA
-     -hi|--hip:     build for HIP
-      -t|--test:    Test the library
+      -d|--debug:       Debug version
+     -bt|--build-type:  Build type (CPU/CUDA/HIP)
+      -t|--test:        Test the library
+     -nc|--no-clean:    Do not run clean build
 EOF
       exit
       ;;
 esac
 
+CWD=$(pwd)
+MFEM_DIR=${HOME}/projects/forks/mfem-dev
+HOST=${LCSCHEDCLUSTER}
 DEBUG="no"
-CPU_BUILD="no"
-CUDA_BUILD="no"
-HIP_BUILD="no"
+BUILD_TYPE="none"
 TEST="no"
+CLEAN="yes"
 MODE="rel"
+echo -e "Running on Host: ${HOST}"
+
 while [ "$*" ]; do
    case $1 in
       -d|--debug)
          MODE="dbg"; shift
          ;;
 
-      -c|--cpu)
-         CPU_BUILD="yes"; shift
-         ;;
+     -bt|--build-type)
+         shift;
+         case $1 in
+             "cpu"|"CPU")
+                 BUILD_TYPE="cpu"
+                 ;;
 
-     -cu|--cuda)
-         CUDA_BUILD="yes"; shift
-         ;;
+             "cuda"|"CUDA")
+                 BUILD_TYPE="cuda"
+                 ;;
 
-     -hi|--hip)
-         HIP_BUILD="yes"; shift
+             "hip"|"HIP"|"rocm")
+                 BUILD_TYPE="rocm"
+                 ;;
+
+             *)
+                 echo "Unknown input: $1"
+	         exit
+                 ;;
+         esac
+         shift
          ;;
 
       -t|--test)
          TEST="yes"; shift
+         ;;
+
+     -nc|--no-clean)
+         CLEAN="no"; shift
          ;;
 
       *)
@@ -49,21 +67,33 @@ while [ "$*" ]; do
    esac
 done
 
-MFEM_DIR=${HOME}/projects/mfem-vm
-HOST=${HOST:-$(hostname)}
-echo -e "Running on Host: ${HOST}"
+if [[ ${BUILD_TYPE} == "none" ]]; then
+    echo -e "Please specify a build type! -bt <CPU|CUDA|HIP>"
+    exit 0
+fi
 
 # Set host specific options
 case ${HOST} in
     "lassen")
-        COMPILER="xlc16"
-        module load cuda/11.2.0
         NP=40
+        COMPILER="xlc"
+        COMPILER_VERSION=16
+        CUDA_VERSION=11.2.0
+        module load cuda/${CUDA_VERSION}
         ;;
 
     "nztux")
-        COMPILER="gcc11"
         NP=24
+        COMPILER="gcc11"
+        ;;
+
+    "tioga")
+        NP=24
+        COMPILER="cce"
+        COMPILER_VERSION=15.0.1
+        ROCM_VERSION=5.4.0
+        BUILD_TYPE+="-${ROCM_VERSION}"
+        module load rocm/${ROCM_VERSION}
         ;;
 
     *)
@@ -72,39 +102,37 @@ case ${HOST} in
         ;;
 esac
 
-if [[ $CPU_BUILD == "yes" ]]; then
-    BUILD_DIR=${MFEM_DIR}/build
-    USER_CONFIG=${MFEM_DIR}/config/${HOST}_${COMPILER}_${MODE}.mk
-
+BUILD_DIR=${WORK}/projects/forks/mfem-dev/build
+if [[ ${CLEAN} == "yes" ]]; then
     rm -rf ${BUILD_DIR}
-    mkdir ${BUILD_DIR}
-    make BUILD_DIR=${BUILD_DIR} config USER_CONFIG=${USER_CONFIG}
-    cp ${USER_CONFIG} ${BUILD_DIR}/config
-    cd ${BUILD_DIR}
-    make -j${NP}
-    make examples -j${NP}
-    make install
-else
-    echo -e "Not building for CPUs..."
 fi
+mkdir -p ${BUILD_DIR}
 
-if [[ $CUDA_BUILD == "yes" ]]; then
-    BUILD_DIR=${MFEM_DIR}/build
-    USER_CONFIG=${MFEM_DIR}/config/${HOST}_${COMPILER}_cuda_${MODE}.mk
-
-    rm -rf ${BUILD_DIR}
-    mkdir ${BUILD_DIR}
-    make BUILD_DIR=${BUILD_DIR} config USER_CONFIG=${USER_CONFIG}
-    cp ${USER_CONFIG} ${BUILD_DIR}/config
-    cd ${BUILD_DIR}
-    make -j${NP}
-    make examples -j${NP}
-    make install
-else
-    echo -e "\n\nNot building for CUDA..."
+# Set user config
+CONFIG_SUFFIX=${COMPILER}-${COMPILER_VERSION}_${BUILD_TYPE}_${MODE}
+USER_CONFIG=${MFEM_DIR}/config/${HOST}_${CONFIG_SUFFIX}.mk
+if [[ ! -f ${USER_CONFIG} ]]; then
+    echo -e "Config file not found! ${USER_CONFIG}"
+    exit 0
 fi
+INSTALL_DIR=${WORK}/projects/forks/mfem-dev/install/${CONFIG_SUFFIX}
 
+make BUILD_DIR=${BUILD_DIR} config USER_CONFIG=${USER_CONFIG}
+cp ${USER_CONFIG} ${BUILD_DIR}/config
+cd ${BUILD_DIR}
+make -j${NP}
+make examples -j${NP}
+make install
+
+# Test library integration
 if [[ $TEST == "yes" ]]; then
     echo -e "\n\n\nTesting MFEM-Hypre integration..."
     make test
 fi
+
+# Build a few drivers
+mkdir -p ${INSTALL_DIR}/bin
+cp -rfv ${BUILD_DIR}/examples/ex2p ${INSTALL_DIR}/bin
+
+# Go back to starting folder
+cd ${CWD}
