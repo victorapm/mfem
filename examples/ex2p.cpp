@@ -56,7 +56,7 @@ int main(int argc, char *argv[])
 
    // 2. Parse command-line options.
    const char *mesh_file = "../data/beam-tri.mesh";
-   int prec_print_level = 1;
+   int prec_print_level = 0;
    int order = 1;
    int serial_ref_levels = 4;
    int parallel_ref_levels = 1;
