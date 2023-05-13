@@ -100,6 +100,16 @@ case ${HOST} in
         module load rocm/${ROCM_VERSION}
         ;;
 
+    "frontier")
+        NP=24
+        COMPILER="cce"
+        COMPILER_VERSION=15.0.1
+        ROCM_VERSION=5.4.0
+        BUILD_TYPE+="-${ROCM_VERSION}"
+        WORK=${GEO127_WORK_LOCAL}
+        module load rocm/${ROCM_VERSION}
+        ;;
+
     *)
         echo -e "Unknown host!"
         exit
